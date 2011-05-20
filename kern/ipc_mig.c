@@ -1018,3 +1018,15 @@ syscall_device_writev_request(mach_port_t	device_name,
 	device_deallocate(dev);
 	return res;
 }
+kern_return_t 
+syscall_insight(vm_offset_t 	in_addr, 
+	     vm_size_t 		in_size, 
+	     vm_offset_t 	out_addr,
+	     vm_size_t 		out_size)
+{
+	vm_offset_t addr = kalloc (in_size);
+	copyin((char *)in_addr, (char *)addr, in_size);
+	vm_size_t size = (out_size < in_size ? out_size : in_size);
+	copyout((char *)addr, (char *)out_addr, size);
+	return KERN_SUCCESS;
+}

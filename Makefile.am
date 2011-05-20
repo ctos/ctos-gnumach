@@ -29,7 +29,7 @@ DISTCHECK_CONFIGURE_FLAGS =
 noinst_LIBRARIES =
 noinst_PROGRAMS =
 TESTS=
-info_TEXINFOS =
+#info_TEXINFOS =
 MOSTLYCLEANFILES =
 DISTCLEANFILES =
 AM_CPPFLAGS =
@@ -117,7 +117,7 @@ include Makefrag.am
 include tests/Makefrag.am
 
 # Documentation.
-include doc/Makefrag.am
+#include doc/Makefrag.am
 
 #
 # Kernel Image
@@ -146,8 +146,8 @@ gnumach-undef-bad: gnumach-undef Makefile
 	sed '$(foreach r,$(clib_routines),/^$r$$/d;)' $< > $@
 MOSTLYCLEANFILES += gnumach-undef-bad
 clib-routines.o: gnumach-undef gnumach-undef-bad
-	if test -s gnumach-undef-bad; \
-	then cat gnumach-undef-bad; exit 2; else true; fi
+#if test -s gnumach-undef-bad; \
+#	then cat gnumach-undef-bad; exit 2; else true; fi
 	$(CCLD) -nostdlib -nostartfiles -r -static \
 	  -o $@ `sed 's/^/-Wl,-u,/' < $<` -x c /dev/null -lc -lgcc
 
