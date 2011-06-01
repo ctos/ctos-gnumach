@@ -729,6 +729,7 @@ vm_map_pmap_enter(map, addr, end_addr, object, offset, protection)
  *
  *		Arguments are as defined in the vm_map call.
  */
+extern int flag0; 
 kern_return_t vm_map_enter(
 		map,
 		address, size, mask, anywhere,
@@ -776,7 +777,9 @@ kern_return_t vm_map_enter(
 		 *	address, we have to start after it.
 		 */
 
+		flag0 = 0;
 		if (start == map->min_offset) {
+			flag0 = 1;
 			if ((entry = map->first_free) != vm_map_to_entry(map))
 				start = entry->vme_end;
 		} else {
@@ -1003,6 +1006,23 @@ kern_return_t vm_map_enter(
 	return(result);
 
 #undef	RETURN
+}
+
+kern_return_t
+vm_map_remap(
+	mach_port_t  	target_task,
+	vm_offset_t 	*address,
+	vm_size_t	size,
+	vm_offset_t	mask,
+	boolean_t	anywhere,
+	mach_port_t	src_task,
+	vm_offset_t	src_address,
+	boolean_t	copy,
+	vm_prot_t	*cur_protection,
+	vm_prot_t	*max_protection,
+	vm_inherit_t	inheritance)
+{
+	return KERN_SUCCESS;
 }
 
 /*
@@ -4349,7 +4369,7 @@ kern_return_t vm_map_lookup(var_map, vaddr, fault_type, out_version,
 	register vm_map_t		map = *var_map;
 	register vm_prot_t		prot;
 
-	RetryLookup: ;
+RetryLookup: ;
 
 	/*
 	 *	Lookup the faulting address.

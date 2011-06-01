@@ -384,6 +384,88 @@ kern_return_t vm_map(
 	return(result);
 }
 
+kern_return_t
+vm_remap(
+	vm_map_t  	target_map,
+	vm_offset_t 	*address,
+	vm_size_t	size,
+	vm_offset_t	mask,
+	boolean_t	anywhere,
+	vm_map_t	src_map,
+	vm_offset_t	src_address,
+	boolean_t	copy,
+	vm_prot_t	*cur_protection,
+	vm_prot_t	*max_protection,
+	vm_inherit_t	inheritance)
+{
+	vm_map_version_t 	out_version;
+	vm_object_t		object;
+	vm_offset_t		offset;
+	vm_prot_t		out_prot;
+	boolean_t		wired;
+	kern_return_t		result;
+
+	if ((target_map == VM_MAP_NULL) ||
+	    (*cur_protection & ~VM_PROT_ALL) ||
+	    (*max_protection & ~VM_PROT_ALL))
+		return(KERN_INVALID_ARGUMENT);
+
+        switch (inheritance) {
+        case VM_INHERIT_NONE:
+        case VM_INHERIT_COPY:
+        case VM_INHERIT_SHARE:
+                break;
+        default:
+                return(KERN_INVALID_ARGUMENT);
+        }
+
+	*address = trunc_page(*address);
+	size = round_page(size);
+
+	result = vm_map_lookup (&src_map, src_address, 0,
+				&out_version, &object, &offset, &out_prot, &wired);
+
+	if (copy) {
+		vm_object_t	new_object;
+		vm_offset_t	new_offset;
+
+		result = vm_object_copy_strategically(object, offset, size,
+				&new_object, &new_offset,
+				&copy);
+
+		/*
+		 *	Throw away the reference to the
+		 *	original object, as it won't be mapped.
+		 */
+
+		vm_object_deallocate(object);
+
+		if (result != KERN_SUCCESS)
+			return (result);
+
+		object = new_object;
+		offset = new_offset;
+	}
+
+	printf ("object: %p\n", object);
+	printf ("offset: %u\n", offset);
+	printf ("cur: %d\n",(int)*cur_protection);
+	printf ("max: %d\n",(int)*max_protection);
+	//object = NULL;
+	//offset = 0;
+
+	if (result == KERN_SUCCESS)
+	{
+		result = vm_map_enter (target_map, address, size, mask, 
+				 anywhere, 
+				 object, offset, copy,
+				 *cur_protection, 
+				 *max_protection, 
+				 inheritance);
+	}
+	return result;
+}
+
 /*
  *	Specify that the range of the virtual address space
  *	of the target task must not cause page faults for

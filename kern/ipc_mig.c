@@ -615,6 +615,60 @@ kern_return_t thread_set_state_KERNEL(thread_port, flavor,
  *	Return values are only set (and should only be set, with copyout)
  *	on successfull calls.
  */
+kern_return_t
+syscall_vm_remap(
+	mach_port_t  	target_task,
+	vm_offset_t 	*address,
+	vm_size_t	size,
+	vm_offset_t	mask,
+	boolean_t	anywhere,
+	mach_port_t	src_task,
+	vm_offset_t	src_address,
+	boolean_t	copy,
+	vm_prot_t	*cur_protection,
+	vm_prot_t	*max_protection,
+	vm_inherit_t	inheritance)
+{
+	vm_map_t 	src_map;
+	vm_map_t 	target_map;
+	vm_offset_t	addr;
+	vm_prot_t	cur;
+	vm_prot_t	max;
+	kern_return_t	result;
+
+	target_map = port_name_to_map(target_task);
+	if (target_map == VM_MAP_NULL)
+		return MACH_SEND_INTERRUPTED;
+	src_map = port_name_to_map(src_task);
+	if (src_map == VM_MAP_NULL)
+		return MACH_SEND_INTERRUPTED;
+
+	copyin((char *)address, (char *)&addr, sizeof(vm_offset_t));
+	copyin((char *)cur_protection, (char *)&cur, sizeof(vm_prot_t));
+	copyin((char *)max_protection, (char *)&max, sizeof(vm_prot_t));
+
+	result = vm_remap (target_map,
+			   &addr,
+			   size,
+			   mask,
+			   anywhere,
+			   src_map,
+			   src_address,
+			   copy,
+			   &cur,
+			   &max,
+			   inheritance);
+
+	if (result == KERN_SUCCESS)
+	{
+		copyout((char *)&addr, (char *)address, sizeof(vm_offset_t));
+		copyout((char *)&cur,  (char *)cur_protection, sizeof (vm_prot_t));
+		copyout((char *)&max, (char *)max_protection, sizeof (vm_prot_t));
+	}
+	vm_map_deallocate (src_map);
+	vm_map_deallocate (target_map);
+	return result;
+}
 
 kern_return_t
 syscall_vm_map(
@@ -630,35 +684,49 @@ syscall_vm_map(
 	vm_prot_t	max_protection,
 	vm_inherit_t	inheritance)
 {
-	vm_map_t		map;
-	ipc_port_t		port;
-	vm_offset_t		addr;
-	kern_return_t		result;
+	vm_map_t		map; //Specify the virtual memory map of "target_map".
+	ipc_port_t		port; // A reference for an object which is a copy of "memory_object".
+	vm_offset_t		addr; // The kernel copy of "*address" which is from an user space.
+	kern_return_t		result; // Error number. an fault occurs if it's non-zero.
 
-	map = port_name_to_map(target_map);
-	if (map == VM_MAP_NULL)
+	map = port_name_to_map(target_map); //"map" represents a virtual address space which is named by its owning task.
+	if (map == VM_MAP_NULL) // Error-checking
 		return MACH_SEND_INTERRUPTED;
+/*
+ipc_object_copyin:
+		Copying a capability from a space.
+		If successful, the caller gets a reference
+		for the resulting object, unless it is OI_DEAD.
+current_space:
+		Returning current task's vm space.
+*/
 
-	if (MACH_PORT_VALID(memory_object)) {
+	if (MACH_PORT_VALID(memory_object)) {// "memory_object" must not NULL or DEAD.
 		result = ipc_object_copyin(current_space(), memory_object,
 					   MACH_MSG_TYPE_COPY_SEND,
-					   (ipc_object_t *) &port);
-		if (result != KERN_SUCCESS) {
+					   (ipc_object_t *) &port); // Copying "memory_object" from current task's space. "port" mantains the ref of resulting object.
+		if (result != KERN_SUCCESS) { //freeing the associated memory if error occurs
 			vm_map_deallocate(map);
 			return result;
 		}
 	} else
-		port = (ipc_port_t) memory_object;
+		port = (ipc_port_t) memory_object;// "port" is invalid. it will cause an error later
 
-	copyin((char *)address, (char *)&addr, sizeof(vm_offset_t));
-	result = vm_map(map, &addr, size, mask, anywhere,
+/*
+   	copyin:
+		Copying in a range from user space.
+	copyout:
+		Copying out a kernel range to user space.
+*/
+	copyin((char *)address, (char *)&addr, sizeof(vm_offset_t)); //Copying *address to addr.
+	result = vm_map(map, &addr, size, mask, anywhere,// main hundle function.
 			port, offset, copy,
 			cur_protection, max_protection,	inheritance);
 	if (result == KERN_SUCCESS)
-		copyout((char *)&addr, (char *)address, sizeof(vm_offset_t));
-	if (IP_VALID(port))
+		copyout((char *)&addr, (char *)address, sizeof(vm_offset_t));//Copyout the starting address.
+	if (IP_VALID(port)) //freeing port.
 		ipc_port_release_send(port);
-	vm_map_deallocate(map);
+	vm_map_deallocate(map); // freeing map.
 
 	return result;
 }
@@ -1018,6 +1086,7 @@ syscall_device_writev_request(mach_port_t	device_name,
 	device_deallocate(dev);
 	return res;
 }
+int flag0;
 kern_return_t 
 syscall_insight(vm_offset_t 	in_addr, 
 	     vm_size_t 		in_size, 
@@ -1028,5 +1097,7 @@ syscall_insight(vm_offset_t 	in_addr,
 	copyin((char *)in_addr, (char *)addr, in_size);
 	vm_size_t size = (out_size < in_size ? out_size : in_size);
 	copyout((char *)addr, (char *)out_addr, size);
+	//copyout ((char *) &flag0, (char *)out_addr, sizeof (int));
 	return KERN_SUCCESS;
 }
+
