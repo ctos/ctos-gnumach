@@ -291,7 +291,7 @@ kern_return_t vm_map(
 		memory_object, offset,
 		copy,
 		cur_protection, max_protection,	inheritance)
-	vm_map_t	target_map;
+	vm_map_t	target_map; 
 	vm_offset_t	*address;
 	vm_size_t	size;
 	vm_offset_t	mask;
@@ -304,11 +304,11 @@ kern_return_t vm_map(
 	vm_inherit_t	inheritance;
 {
 	register
-	vm_object_t	object;
+	vm_object_t	object; //A ref for the vm_object of "memory_object".
 	register
-	kern_return_t	result;
+	kern_return_t	result; //Error number.
 
-	if ((target_map == VM_MAP_NULL) ||
+	if ((target_map == VM_MAP_NULL) || //Argument-checking
 	    (cur_protection & ~VM_PROT_ALL) ||
 	    (max_protection & ~VM_PROT_ALL))
 		return(KERN_INVALID_ARGUMENT);
@@ -322,20 +322,20 @@ kern_return_t vm_map(
                 return(KERN_INVALID_ARGUMENT);
         }
 
-	*address = trunc_page(*address);
-	size = round_page(size);
+	*address = trunc_page(*address); //If "*address" is not at the beginning fo a virtual space, the kernel rounds it up to the next page boundary.
+	size = round_page(size); //Round "size" up to an integral number of virtual pages.
 
-	if (!IP_VALID(memory_object)) {
+	if (!IP_VALID(memory_object)) { //In this case, vm_map is the same with vm_allocate.
 		object = VM_OBJECT_NULL;
 		offset = 0;
 		copy = FALSE;
-	} else if ((object = vm_object_enter(memory_object, size, FALSE))
-			== VM_OBJECT_NULL)
+	} else if ((object = vm_object_enter(memory_object, size, FALSE)) 
+			== VM_OBJECT_NULL) //If "memory_object" is a proxy memory object, we mustget the real one.
 	  {
 	    ipc_port_t real_memobj;
 	    vm_prot_t prot;
 	    result = memory_object_proxy_lookup (memory_object, &real_memobj,
-						 &prot);
+						 &prot); //fetch the real.
 	    if (result != KERN_SUCCESS)
 	      return result;
 
@@ -343,11 +343,11 @@ kern_return_t vm_map(
 	    max_protection &= prot;
 	    cur_protection &= prot;
 
-	    if ((object = vm_object_enter(real_memobj, size, FALSE))
+	    if ((object = vm_object_enter(real_memobj, size, FALSE)) 
 		== VM_OBJECT_NULL)
 	      return KERN_INVALID_ARGUMENT;
 	  }
-
+	// Now we obtain the vm object which is suitable for user with vm_map_enter
 	/*
 	 *	Perform the copy if requested
 	 */
@@ -358,7 +358,7 @@ kern_return_t vm_map(
 
 		result = vm_object_copy_strategically(object, offset, size,
 				&new_object, &new_offset,
-				&copy);
+				&copy); //Copy "object" to "new_object" according to "object"'s declared strategy.
 
 		/*
 		 *	Throw away the reference to the
@@ -380,7 +380,7 @@ kern_return_t vm_map(
 				copy,
 				cur_protection, max_protection, inheritance
 				)) != KERN_SUCCESS)
-		vm_object_deallocate(object);
+		vm_object_deallocate(object); // The main hundle function.
 	return(result);
 }
 
