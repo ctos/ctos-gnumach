@@ -155,6 +155,14 @@ struct vm_map_header {
  *		insertion, or removal.  Another hint is used to
  *		quickly find free space.
  */
+/*
+  	"hint" field make kernel quickly look up which exact vm_map_entry 
+	the given address is contained. 
+	After each search, "hint" records the resulting vm_map_entry.
+	when the next address which we want to look up is greater than the last one (
+	which is most usually the case),
+	we needn't start from the first entry, Instead, Starting from "hint" is a better choice.
+*/
 struct vm_map {
 	lock_data_t		lock;		/* Lock for map data */
 	struct vm_map_header	hdr;		/* Map entry header */
