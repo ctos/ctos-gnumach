@@ -409,8 +409,8 @@ boolean_t vm_map_lookup_entry(map, address, entry)
 	cur = map->hint;
 	simple_unlock(&map->hint_lock);
 
-	if (cur == vm_map_to_entry(map))
-		cur = cur->vme_next;
+	if (cur == vm_map_to_entry(map)) //Make sure "cur" points to a vm_map_entry structure
+		cur = cur->vme_next; // equvalent to cur = vm_map_first_entry(map);
 
 	if (address >= cur->vme_start) {
 	    	/*
@@ -425,7 +425,7 @@ boolean_t vm_map_lookup_entry(map, address, entry)
 		 *	buy us anything anyway).
 		 */
 		last = vm_map_to_entry(map);
-		if ((cur != last) && (cur->vme_end > address)) {
+		if ((cur != last) && (cur->vme_end > address)) { // "address" is in range [cur->vme_start, cur->vme_end), This entry is what we want.
 			*entry = cur;
 			return(TRUE);
 		}
@@ -434,7 +434,7 @@ boolean_t vm_map_lookup_entry(map, address, entry)
 	    	/*
 		 *	Go from start to hint, *inclusively*
 		 */
-		last = cur->vme_next;
+		last = cur->vme_next;// make "cur" never equal to "last" at the beginning of later loop, "last" also control the loop to an end, as with super end in C++ STL vector.
 		cur = vm_map_first_entry(map);
 	}
 
@@ -444,7 +444,7 @@ boolean_t vm_map_lookup_entry(map, address, entry)
 
 	while (cur != last) {
 		if (cur->vme_end > address) {
-			if (address >= cur->vme_start) {
+			if (address >= cur->vme_start) { // In range [cur->vme_start, cur->end).The right one
 			    	/*
 				 *	Save this lookup for future
 				 *	hints, and return
@@ -729,7 +729,6 @@ vm_map_pmap_enter(map, addr, end_addr, object, offset, protection)
  *
  *		Arguments are as defined in the vm_map call.
  */
-extern int flag0; 
 kern_return_t vm_map_enter(
 		map,
 		address, size, mask, anywhere,
@@ -766,9 +765,9 @@ kern_return_t vm_map_enter(
 		 *	Calculate the first possible address.
 		 */
 
-		if (start < map->min_offset)
+		if (start < map->min_offset) // map->min_offset is the beginning of virtual address space
 			start = map->min_offset;
-		if (start > map->max_offset)
+		if (start > map->max_offset) // map->min_offset is the boundary of virtual address space
 			RETURN(KERN_NO_SPACE);
 
 		/*
@@ -777,11 +776,9 @@ kern_return_t vm_map_enter(
 		 *	address, we have to start after it.
 		 */
 
-		flag0 = 0;
-		if (start == map->min_offset) {
-			flag0 = 1;
+		if (start == map->min_offset) { // map->first_free was initialized with vm_map_to_entry(map) for each map, So we have to find a new address if they distinct.
 			if ((entry = map->first_free) != vm_map_to_entry(map))
-				start = entry->vme_end;
+				start = entry->vme_end;// entry->vme_end is first free address.
 		} else {
 			vm_map_entry_t	tmp_entry;
 			if (vm_map_lookup_entry(map, start, &tmp_entry))
