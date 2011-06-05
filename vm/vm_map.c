@@ -409,7 +409,7 @@ boolean_t vm_map_lookup_entry(map, address, entry)
 	cur = map->hint;
 	simple_unlock(&map->hint_lock);
 
-	if (cur == vm_map_to_entry(map)) //Make sure "cur" points to a vm_map_entry structure
+	if (cur == vm_map_to_entry(map)) //Make sure "cur" points to a vm_map_entry structure.
 		cur = cur->vme_next; // equvalent to cur = vm_map_first_entry(map);
 
 	if (address >= cur->vme_start) {
@@ -719,6 +719,21 @@ vm_map_pmap_enter(map, addr, end_addr, object, offset, protection)
 	}
 }
 
+void vm_ctos_check_range(vm_map_t map)
+{
+	vm_map_entry_t entry;
+	entry = vm_map_first_entry(map);
+	while (entry->vme_next != vm_map_to_entry(map)) {
+		if (entry->vme_end != entry->vme_next->vme_start)
+		{
+			printf("%u\t%u\n", entry->vme_start, entry->vme_end);
+			printf("%u\t%u\n", entry->vme_next->vme_start, 
+					entry->vme_next->vme_end);
+		}
+		entry = entry->vme_next;
+	}
+}
+
 /*
  *	Routine:	vm_map_enter
  *
@@ -781,7 +796,7 @@ kern_return_t vm_map_enter(
 				start = entry->vme_end;// entry->vme_end is first free address.
 		} else {
 			vm_map_entry_t	tmp_entry;
-			if (vm_map_lookup_entry(map, start, &tmp_entry))
+			if (vm_map_lookup_entry(map, start, &tmp_entry)) // Address "start" is contained in tmp_entry.
 				start = tmp_entry->vme_end;
 			entry = tmp_entry;
 		}
@@ -793,7 +808,7 @@ kern_return_t vm_map_enter(
 		 */
 
 		while (TRUE) {
-			register vm_map_entry_t	next;
+			register vm_map_entry_t	next; //iterator for vm_map_entry list
 
 		    	/*
 			 *	Find the end of the proposed new region.
@@ -801,21 +816,21 @@ kern_return_t vm_map_enter(
 			 *	wrap around the address.
 			 */
 
-			if (((start + mask) & ~mask) < start) {
+			if (((start + mask) & ~mask) < start) { //(start + mask) overflaws
 				printf_once("no more room for vm_map_enter in %p\n", map);
 				RETURN(KERN_NO_SPACE);
 			}
-			start = ((start + mask) & ~mask);
+			start = ((start + mask) & ~mask); //masked with "mask" which  usually assigned with 0.
 			end = start + size;
 
-			if ((end > map->max_offset) || (end < start)) {
+			if ((end > map->max_offset) || (end < start)) {//not enough current room 
 				if (map->wait_for_space) {
 					if (size <= (map->max_offset -
-						     map->min_offset)) {
+						     map->min_offset)) {//assign new virtual address space.
 						assert_wait((event_t) map, TRUE);
 						vm_map_unlock(map);
 						thread_block((void (*)()) 0);
-						goto StartAgain;
+						goto StartAgain; //like recusive callings
 					}
 				}
 
@@ -827,8 +842,8 @@ kern_return_t vm_map_enter(
 			 *	If there are no more entries, we must win.
 			 */
 
-			next = entry->vme_next;
-			if (next == vm_map_to_entry(map))
+			next = entry->vme_next;//Note  which vm_entry_t we need is entry not next if success found.
+			if (next == vm_map_to_entry(map)) //Search over all entries, still find nothing.
 				break;
 
 			/*
@@ -836,7 +851,7 @@ kern_return_t vm_map_enter(
 			 *	after the end of the potential new region.
 			 */
 
-			if (next->vme_start >= end)
+			if (next->vme_start >= end) //Now the end is in range [entry->vme_start, entry->vme_end).
 				break;
 
 			/*
@@ -910,7 +925,7 @@ kern_return_t vm_map_enter(
 
 	if ((object == VM_OBJECT_NULL) &&
 	    (entry != vm_map_to_entry(map)) &&
-	    (entry->vme_end == start) &&
+	    (entry->vme_end == start) && //Main requirement, they must adhere to each other
 	    (!entry->is_shared) &&
 	    (!entry->is_sub_map) &&
 	    (entry->inheritance == inheritance) &&
