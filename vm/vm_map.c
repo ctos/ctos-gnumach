@@ -719,21 +719,6 @@ vm_map_pmap_enter(map, addr, end_addr, object, offset, protection)
 	}
 }
 
-void vm_ctos_check_range(vm_map_t map)
-{
-	vm_map_entry_t entry;
-	entry = vm_map_first_entry(map);
-	while (entry->vme_next != vm_map_to_entry(map)) {
-		if (entry->vme_end != entry->vme_next->vme_start)
-		{
-			printf("%u\t%u\n", entry->vme_start, entry->vme_end);
-			printf("%u\t%u\n", entry->vme_next->vme_start, 
-					entry->vme_next->vme_end);
-		}
-		entry = entry->vme_next;
-	}
-}
-
 /*
  *	Routine:	vm_map_enter
  *
@@ -797,7 +782,7 @@ kern_return_t vm_map_enter(
 		} else {
 			vm_map_entry_t	tmp_entry;
 			if (vm_map_lookup_entry(map, start, &tmp_entry)) // Address "start" is contained in tmp_entry.
-				start = tmp_entry->vme_end;
+				start = tmp_entry->vme_end; //All neighbors never overlap
 			entry = tmp_entry;
 		}
 
@@ -4340,6 +4325,18 @@ vm_map_t vm_map_fork(old_map)
 
 	return(new_map);
 }
+kern_return_t 
+vm_map_lookup_object(vm_map_t *var_map,
+	      register vm_offset_t 	address,
+	      vm_offset_t		size,
+	      vm_object_t		*object,
+	      vm_offset_t		*object_offset,
+	      vm_offset_t		*start_offset,
+	      vm_prot_t			*cur_protection,
+	      vm_prot_t			*max_protection)
+{
+	
+}
 
 /*
  *	vm_map_lookup:
@@ -4502,7 +4499,6 @@ RetryLookup: ;
 	 *	Create an object if necessary.
 	 */
 	if (entry->object.vm_object == VM_OBJECT_NULL) {
-
 		if (vm_map_lock_read_to_write(map)) {
 			goto RetryLookup;
 		}
@@ -4877,3 +4873,4 @@ void vm_map_copy_print(copy)
 	indent -=2;
 }
 #endif	/* MACH_KDB */
+

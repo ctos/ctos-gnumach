@@ -2158,6 +2158,7 @@ restart:
 			(void) memory_object_init(pager,
 				object->pager_request,
 				object->pager_name,
+
 				PAGE_SIZE);
 
 		}

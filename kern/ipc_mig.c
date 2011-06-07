@@ -603,18 +603,6 @@ kern_return_t thread_set_state_KERNEL(thread_port, flavor,
 	return result;
 }
 
-/*
- *	Things to keep in mind:
- *
- *	The idea here is to duplicate the semantics of the true kernel RPC.
- *	The destination port/object should be checked first, before anything
- *	that the user might notice (like ipc_object_copyin).  Return
- *	MACH_SEND_INTERRUPTED if it isn't correct, so that the user stub
- *	knows to fall back on an RPC.  For other return values, it won't
- *	retry with an RPC.  The retry might get a different (incorrect) rc.
- *	Return values are only set (and should only be set, with copyout)
- *	on successfull calls.
- */
 kern_return_t
 syscall_vm_remap(
 	mach_port_t  	target_task,
@@ -644,8 +632,6 @@ syscall_vm_remap(
 		return MACH_SEND_INTERRUPTED;
 
 	copyin((char *)address, (char *)&addr, sizeof(vm_offset_t));
-	copyin((char *)cur_protection, (char *)&cur, sizeof(vm_prot_t));
-	copyin((char *)max_protection, (char *)&max, sizeof(vm_prot_t));
 
 	result = vm_remap (target_map,
 			   &addr,
@@ -670,10 +656,22 @@ syscall_vm_remap(
 	return result;
 }
 
+/*
+ *	Things to keep in mind:
+ *
+ *	The idea here is to duplicate the semantics of the true kernel RPC.
+ *	The destination port/object should be checked first, before anything
+ *	that the user might notice (like ipc_object_copyin).  Return
+ *	MACH_SEND_INTERRUPTED if it isn't correct, so that the user stub
+ *	knows to fall back on an RPC.  For other return values, it won't
+ *	retry with an RPC.  The retry might get a different (incorrect) rc.
+ *	Return values are only set (and should only be set, with copyout)
+ *	on successfull calls.
+ */
 kern_return_t
 syscall_vm_map(
-	mach_port_t	target_map,
-	vm_offset_t	*address,
+	mach_port_t	target_map, 
+	vm_offset_t	*address, 
 	vm_size_t	size,
 	vm_offset_t	mask,
 	boolean_t	anywhere,
@@ -1085,19 +1083,5 @@ syscall_device_writev_request(mach_port_t	device_name,
 	 */
 	device_deallocate(dev);
 	return res;
-}
-int flag0;
-kern_return_t 
-syscall_insight(vm_offset_t 	in_addr, 
-	     vm_size_t 		in_size, 
-	     vm_offset_t 	out_addr,
-	     vm_size_t 		out_size)
-{
-	vm_offset_t addr = kalloc (in_size);
-	copyin((char *)in_addr, (char *)addr, in_size);
-	vm_size_t size = (out_size < in_size ? out_size : in_size);
-	copyout((char *)addr, (char *)out_addr, size);
-	//copyout ((char *) &flag0, (char *)out_addr, sizeof (int));
-	return KERN_SUCCESS;
 }
 

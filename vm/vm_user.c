@@ -380,9 +380,10 @@ kern_return_t vm_map(
 				copy,
 				cur_protection, max_protection, inheritance
 				)) != KERN_SUCCESS)
-		vm_object_deallocate(object); // The main hundle function.
+		vm_object_deallocate(object); // The main hundle function. Allocate a "size" sized range in vitural address map "target_map". The resulting range will refer to memory defined by  "object" and "offset" into that object.
 	return(result);
 }
+
 
 kern_return_t
 vm_remap(
@@ -398,32 +399,38 @@ vm_remap(
 	vm_prot_t	*max_protection,
 	vm_inherit_t	inheritance)
 {
-	vm_map_version_t 	out_version;
+	vm_map_entry_t		entry;
 	vm_object_t		object;
 	vm_offset_t		offset;
-	vm_prot_t		out_prot;
-	boolean_t		wired;
-	kern_return_t		result;
+	kern_return_t		result = 0;
 
-	if ((target_map == VM_MAP_NULL) ||
-	    (*cur_protection & ~VM_PROT_ALL) ||
-	    (*max_protection & ~VM_PROT_ALL))
+	if ((target_map == VM_MAP_NULL))
 		return(KERN_INVALID_ARGUMENT);
 
         switch (inheritance) {
         case VM_INHERIT_NONE:
         case VM_INHERIT_COPY:
         case VM_INHERIT_SHARE:
-                break;
-        default:
+                break; default:
                 return(KERN_INVALID_ARGUMENT);
         }
 
 	*address = trunc_page(*address);
 	size = round_page(size);
 
-	result = vm_map_lookup (&src_map, src_address, 0,
-				&out_version, &object, &offset, &out_prot, &wired);
+	if (vm_map_lookup_entry(src_map, src_address, &entry)) {
+		if (!entry->is_sub_map)
+			object = entry->object.vm_object;
+		else {
+			printf("entry->object is submap\n");
+			return KERN_INVALID_ARGUMENT;
+		}
+		offset =  entry->offset;
+	}
+	else
+		return KERN_INVALID_ARGUMENT;
+
+	object->ref_count++;
 
 	if (copy) {
 		vm_object_t	new_object;
@@ -447,15 +454,10 @@ vm_remap(
 		offset = new_offset;
 	}
 
-	printf ("object: %p\n", object);
-	printf ("offset: %u\n", offset);
-	printf ("cur: %d\n",(int)*cur_protection);
-	printf ("max: %d\n",(int)*max_protection);
-	//object = NULL;
-	//offset = 0;
+	*cur_protection = entry->protection & (VM_PROT_WRITE | VM_PROT_READ);
+	*max_protection = entry->max_protection & (VM_PROT_WRITE | VM_PROT_READ);
 
-	if (result == KERN_SUCCESS)
-	{
+	if (result == KERN_SUCCESS) {
 		result = vm_map_enter (target_map, address, size, mask, 
 				 anywhere, 
 				 object, offset, copy,
@@ -463,6 +465,7 @@ vm_remap(
 				 *max_protection, 
 				 inheritance);
 	}
+	*address += src_address - entry->vme_start;
 	return result;
 }
 
