@@ -384,7 +384,20 @@ kern_return_t vm_map(
 	return(result);
 }
 
-
+kern_return_t
+vm_truncate(
+	vm_map_t 	target_map,
+	vm_offset_t	address,
+	vm_size_t	size)
+{
+	vm_map_entry_t	entry;
+	if (vm_map_lookup_entry(target_map, address, &entry)) {
+		size = round_page(size + address - entry->vme_start);
+		entry->vme_end = entry->vme_start + size;
+		return KERN_SUCCESS;	
+	}
+	return KERN_INVALID_ARGUMENT;
+}
 kern_return_t
 vm_remap(
 	vm_map_t  	target_map,
@@ -418,19 +431,17 @@ vm_remap(
 	*address = trunc_page(*address);
 	size = round_page(size);
 
-	if (vm_map_lookup_entry(src_map, src_address, &entry)) {
-		if (!entry->is_sub_map)
-			object = entry->object.vm_object;
-		else {
-			printf("entry->object is submap\n");
-			return KERN_INVALID_ARGUMENT;
-		}
-		offset =  entry->offset;
-	}
-	else
+	if (!vm_map_lookup_entry(src_map, src_address, &entry))
 		return KERN_INVALID_ARGUMENT;
+	
+	if (entry->is_sub_map) {
+		printf("entry->object is submap\n");
+		return KERN_INVALID_ARGUMENT;
+	}
 
+	object = entry->object.vm_object;
 	object->ref_count++;
+	offset =  entry->offset;
 
 	if (copy) {
 		vm_object_t	new_object;
@@ -454,8 +465,8 @@ vm_remap(
 		offset = new_offset;
 	}
 
-	*cur_protection = entry->protection & (VM_PROT_WRITE | VM_PROT_READ);
-	*max_protection = entry->max_protection & (VM_PROT_WRITE | VM_PROT_READ);
+	*cur_protection = entry->protection & *cur_protection;
+	*max_protection = entry->max_protection & *max_protection;
 
 	if (result == KERN_SUCCESS) {
 		result = vm_map_enter (target_map, address, size, mask, 

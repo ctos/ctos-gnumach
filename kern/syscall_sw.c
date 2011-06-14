@@ -91,6 +91,7 @@ extern	kern_return_t	evc_wait_clear();
 extern	kern_return_t	syscall_device_write_request();
 extern	kern_return_t	syscall_device_writev_request();
 extern	kern_return_t 	syscall_vm_remap();
+extern 	kern_return_t 	syscall_vm_truncate();
 
 mach_trap_t	mach_trap_table[] = {
 	MACH_TRAP(kern_invalid, 0),		/* 0 */		/* Unix */
@@ -165,7 +166,7 @@ mach_trap_t	mach_trap_table[] = {
 	MACH_TRAP(syscall_vm_map, 11),			/* 64 */
 	MACH_TRAP(syscall_vm_allocate, 4),		/* 65 */
 	MACH_TRAP(syscall_vm_deallocate, 3),		/* 66 */
-	MACH_TRAP(kern_invalid, 0),			/* 67 */
+	MACH_TRAP(syscall_vm_truncate, 3),		/* 67 */
 	MACH_TRAP(syscall_task_create, 3),		/* 68 */
 	MACH_TRAP(syscall_task_terminate, 1),		/* 69 */
 

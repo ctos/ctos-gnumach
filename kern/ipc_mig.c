@@ -602,6 +602,22 @@ kern_return_t thread_set_state_KERNEL(thread_port, flavor,
 
 	return result;
 }
+kern_return_t
+syscall_vm_truncate(
+	mach_port_t	target_task,
+	vm_offset_t	address,
+	vm_size_t	size)
+{
+	vm_map_t	target_map;
+	kern_return_t result;
+
+	target_map = port_name_to_map(target_task);
+	if (target_map == VM_MAP_NULL)
+		return MACH_SEND_INTERRUPTED;
+	result = vm_truncate(target_map, address, size);
+	vm_map_deallocate(target_map);
+	return result;
+}
 
 kern_return_t
 syscall_vm_remap(
@@ -631,8 +647,10 @@ syscall_vm_remap(
 	if (src_map == VM_MAP_NULL)
 		return MACH_SEND_INTERRUPTED;
 
+	copyin((char *)cur_protection, (char *)&cur, sizeof (vm_prot_t));
+	copyin((char *)max_protection, (char *)&max, sizeof (vm_prot_t));
 	copyin((char *)address, (char *)&addr, sizeof(vm_offset_t));
-
+	
 	result = vm_remap (target_map,
 			   &addr,
 			   size,
